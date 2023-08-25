@@ -1,6 +1,6 @@
 # Jenkins Freestyle
 
-Making a jenkins freestyle job to build a dockerfile and then deploy it over another remote server
+Making a jenkins freestyle job to build a docker image and then deploy it over another remote server
 
 #### Repo used here 
 - https://github.com/nishalprithvi/django-todo-cicd.git
