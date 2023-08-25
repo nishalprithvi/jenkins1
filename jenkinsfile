@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('Pre-Build (Git)') {
+            steps {
+                checkout scmGit(branches: [[name: '*/develop']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/nishalprithvi/django-todo-cicd.git']])
+            }
+        }
+        stage('Build') {
+            steps {
+                script {
+                    sh 'docker build -t django-todo .'
+                }
+            }
+        }
+        stage('Push to docker hub registry') {
+            steps {
+                script {
+                    sh '''
+                            echo Logging in to Docker Hub...
+                            echo "***************" | docker login -u "*********" --password-stdin
+                            echo creating tags for image
+                            timestamp=$(date +"%Y%m%d_%H%M%S")
+                            export REPOSITORY_URI=nishalprithvi/demo_django_img  # Replace with your Docker Hub image repository
+                            export IMAGE_TAG=$timestamp  # Use the timestamp as the image tag   
+                            echo pushing image to docker registry
+                            docker tag django-todo "$REPOSITORY_URI:$IMAGE_TAG"
+                            docker tag django-todo "$REPOSITORY_URI:latest"  # Tagging as "latest"
+                            docker push "$REPOSITORY_URI:$IMAGE_TAG"
+                            docker push "$REPOSITORY_URI:latest"  # Pushing the "latest" tagged image
+                        '''
+                }
+            }
+        }
+        stage('SSH to Remote Server & deploy image') {
+            steps {
+                script {
+                    sshPublisher(publishers: [sshPublisherDesc(configName: 'demo-server', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: '''echo Hi from home ubuntu
+                    echo Logging in to Docker Hub...
+                    echo "*************" | docker login -u "*********" --password-stdin  # use your docker username and access token
+                    echo pulling image from dockerhub registry
+                    export REPOSITORY_URI=nishalprithvi/demo_django_img
+                    sudo docker pull "$REPOSITORY_URI:latest"
+                    echo running image
+                    sudo docker run -d -p 8000:8000 "$REPOSITORY_URI:latest"''', execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '', remoteDirectorySDF: false, removePrefix: '', sourceFiles: '')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+                }
+            }
+        }
+    }
+}
